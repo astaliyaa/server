@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Gyroscope Cube</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <script src="https://unpkg.com/three@0.139.2/build/three.min.js"></script>
+    <script>
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Create a random geometry (TorusKnot here)
+        const geometry = new THREE.TorusKnotGeometry(1, 0.4, 100, 16);
+        const material = new THREE.MeshStandardMaterial({ color: 0x00aaff, metalness: 0.5, roughness: 0.3 });
+        const customMesh = new THREE.Mesh(geometry, material);
+        scene.add(customMesh);
+
+        let rotationDelta = { x: 0, y: 0, z: 0 };
+
+        // Add lights once outside the animate loop
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(1, 1, 1);
+        scene.add(light);
+
+        const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambient);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            customMesh.rotation.x += rotationDelta.x;
+            customMesh.rotation.y += rotationDelta.y;
+            customMesh.rotation.z += rotationDelta.z;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        const socket = new WebSocket('ws://localhost:8080');
+
+        socket.onopen = () => {
+            console.log('WebSocket connected');
+            socket.send(JSON.stringify({ action: 'connect' }));
+        };
+
+        socket.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+
+                if (data.action === 'reset') {
+                    customMesh.rotation.set(0, 0, 0);
+                    rotationDelta = { x: 0, y: 0, z: 0 };
+                } else {
+                    const sensitivityFactor = 0.01;
+                    rotationDelta.x = data.x * sensitivityFactor;
+                    rotationDelta.y = data.y * sensitivityFactor;
+                    rotationDelta.z = data.z * sensitivityFactor;
+                }
+            } catch (e) {
+                console.log('Invalid JSON received');
+            }
+        };
+
+        camera.position.z = 5;
+    </script>
+
+</body>
+
+</html>
